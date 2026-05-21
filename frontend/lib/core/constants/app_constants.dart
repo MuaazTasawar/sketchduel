@@ -1,14 +1,14 @@
 class AppConstants {
   static const String appName = 'SketchDuel';
 
-  // Local development
-  static const String baseUrl = 'http://10.0.2.2:8000/api/v1';
-  // For web/iOS emulator use: 'http://localhost:8000/api/v1'
-  // For production use: 'https://sketchduel-api.onrender.com/api/v1'
+  // FOR CHROME / WEB (you are here)
+  static const String baseUrl = 'http://localhost:8000/api/v1';
 
-  // Supabase — replace with your actual values from supabase.com dashboard
-  static const String supabaseUrl = 'https://your-project-id.supabase.co';
-  static const String supabaseAnonKey = 'your-anon-public-key';
+  // FOR Android emulator use this instead:
+  // static const String baseUrl = 'http://10.0.2.2:8000/api/v1';
+
+  static const String supabaseUrl = 'https://erprzuconhstvqefcouj.supabase.co';
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVycHJ6dWNvbmhzdHZxZWZjb3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODQ2OTIsImV4cCI6MjA5NDk2MDY5Mn0.V2c2cYoCOotu_XcFAmuUkKZpOKNEARsTOzuRcO2imDQ';
 
   static const int drawingTimeSeconds = 60;
   static const int maxRoomCodeLength = 6;

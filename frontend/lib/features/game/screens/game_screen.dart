@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:sketchduel_app/core/constants/app_constants.dart';
 import 'package:sketchduel_app/core/theme/app_theme.dart';
 import 'package:sketchduel_app/core/utils/supabase_client.dart';
-import 'package:sketchduel_app/data/models/game_model.dart';
 import 'package:sketchduel_app/data/repositories/game_repository.dart';
 import 'package:sketchduel_app/features/game/widgets/ai_score_bar.dart';
 import 'package:sketchduel_app/features/game/widgets/drawing_canvas.dart';
