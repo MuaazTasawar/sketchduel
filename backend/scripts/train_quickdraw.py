@@ -20,6 +20,7 @@ import io
 import json
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -97,7 +98,29 @@ def download_class(name: str, samples: int, cache_dir: Path, base_url: str = BAS
     return array
 
 
+def check_categories_exist(base_url: str = BASE_URL) -> None:
+    """Fail fast and list EVERY category the dataset does not have (instead of dying halfway)."""
+    print(f"Checking that all {len(QUICKDRAW_CLASSES)} categories exist in the dataset...")
+    missing = []
+    for name in QUICKDRAW_CLASSES:
+        url = base_url + urllib.parse.quote(name) + ".npy"
+        try:
+            _http_range(url, 0, 0)
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                missing.append(name)
+            else:
+                raise
+    if missing:
+        raise SystemExit(
+            "These categories do not exist in the QuickDraw dataset: " + ", ".join(missing)
+            + "\nReplace them in QUICKDRAW_CLASSES (backend/app/services/ml_service.py) with names from "
+            "https://github.com/googlecreativelab/quickdraw-dataset/blob/master/categories.txt"
+        )
+
+
 def build_real_dataset(samples: int, data_dir: Path) -> Tuple[np.ndarray, np.ndarray]:
+    check_categories_exist()
     xs, ys = [], []
     for index, name in enumerate(QUICKDRAW_CLASSES):
         print(f"[{index + 1:2d}/{len(QUICKDRAW_CLASSES)}] {name}")

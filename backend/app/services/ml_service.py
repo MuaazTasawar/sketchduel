@@ -23,7 +23,7 @@ QUICKDRAW_CLASSES: List[str] = [
     "cake", "car", "cat", "chair", "clock", "cloud", "coffee cup", "computer",
     "crown", "cup", "dog", "dolphin", "door", "elephant", "eye", "face", "fish",
     "flower", "frog", "guitar", "hammer", "hand", "hat", "helicopter", "house",
-    "ice cream", "key", "lamp", "laptop", "leaf", "lion", "moon", "mountain",
+    "ice cream", "key", "laptop", "leaf", "light bulb", "lion", "moon", "mountain",
     "mushroom", "octopus", "pencil", "pizza", "rabbit", "shoe", "snake", "star",
     "sun", "sword", "table", "telephone", "tree", "truck", "umbrella", "violin",
     "whale", "windmill", "zebra",
