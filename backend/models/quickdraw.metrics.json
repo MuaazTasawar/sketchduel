@@ -1,0 +1,8 @@
+{
+  "validation_accuracy": 0.8378,
+  "classes": 60,
+  "samples_per_class": 2000,
+  "epochs": 5,
+  "trained_at": "2026-10-23T08:43:32+00:00",
+  "dataset": "Google QuickDraw numpy_bitmap (CC BY 4.0)"
+}
