@@ -1,19 +1,33 @@
-# Python
-backend/venv/
-backend/__pycache__/
-backend/.env
-backend/*.pyc
-backend/.pytest_cache/
+# -- Python --
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
-# Flutter
+# -- Secrets & local config --
+.env
+.env.*
+!.env.example
+frontend/env.json
+
+# -- ML artefacts (the trained .onnx IS committed so Render can serve it) --
+backend/data/
+backend/models/*.pt
+backend/models/*.npz
+
+# -- Flutter --
 frontend/.dart_tool/
 frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
 frontend/build/
 frontend/.packages
-frontend/pubspec.lock
+# NOTE: frontend/pubspec.lock is committed on purpose (this is an app, not a package)
 
-# General
+# -- General --
 .DS_Store
+Thumbs.db
 *.log
-.env
+.idea/

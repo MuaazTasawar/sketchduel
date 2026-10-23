@@ -1,20 +1,36 @@
+/// Compile-time configuration.
+///
+/// Values are injected with `--dart-define` / `--dart-define-from-file=env.json`:
+///   flutter run -d chrome --dart-define-from-file=env.json
 class AppConstants {
   static const String appName = 'SketchDuel';
 
-  // FOR CHROME / WEB (you are here)
-  static const String baseUrl = 'http://localhost:8000/api/v1';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8000/api/v1',
+  );
 
-  // FOR Android emulator use this instead:
-  // static const String baseUrl = 'http://10.0.2.2:8000/api/v1';
+  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  static const String supabaseAnonKey =
+      String.fromEnvironment('SUPABASE_ANON_KEY');
 
-  static const String supabaseUrl = 'https://erprzuconhstvqefcouj.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVycHJ6dWNvbmhzdHZxZWZjb3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODQ2OTIsImV4cCI6MjA5NDk2MDY5Mn0.V2c2cYoCOotu_XcFAmuUkKZpOKNEARsTOzuRcO2imDQ';
+  /// True when the Supabase values were provided at build/run time.
+  static bool get isConfigured =>
+      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
+  /// The server is authoritative for the match deadline; this only drives the UI timer.
   static const int drawingTimeSeconds = 60;
   static const int maxRoomCodeLength = 6;
+  static const int livePreviewIntervalSeconds = 5;
+  static const int roomPollIntervalSeconds = 3;
 
+  // API endpoints (relative to baseUrl)
   static const String createRoomEndpoint = '/game/room/create';
   static const String joinRoomEndpoint = '/game/room/join';
+  static const String roomByIdEndpoint = '/game/room/id';
   static const String scoreEndpoint = '/game/score';
+  static const String predictEndpoint = '/game/predict';
+  static const String historyEndpoint = '/game/history';
   static const String leaderboardEndpoint = '/leaderboard/top';
+  static const String profileEndpoint = '/auth/profile';
 }
