@@ -1,0 +1,4 @@
+-r requirements.txt
+torch>=2.4
+onnx>=1.16
+onnxscript>=0.1
