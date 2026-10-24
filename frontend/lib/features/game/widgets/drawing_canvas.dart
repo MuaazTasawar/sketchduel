@@ -1,85 +1,132 @@
-import 'dart:ui' as ui;
 import 'dart:convert';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-class DrawingPoint {
-  final Offset offset;
-  final Paint paint;
-  DrawingPoint(this.offset, this.paint);
+/// Holds the strokes of one drawing and can turn the picture into a PNG for the server.
+class DrawingController extends ChangeNotifier {
+  /// Attached to the canvas' RepaintBoundary by [DrawingCanvas].
+  final GlobalKey boundaryKey = GlobalKey();
+
+  final List<List<Offset>> _strokes = [];
+  List<Offset>? _current;
+  int? _activePointer;
+
+  /// True as soon as something has been drawn.
+  bool get hasInk => _strokes.isNotEmpty || (_current?.isNotEmpty ?? false);
+
+  int get strokeCount => _strokes.length + (_current == null ? 0 : 1);
+
+  /// Starts a stroke for [pointer]. Returns false when another finger is already drawing.
+  bool startStroke(int pointer, Offset position) {
+    if (_activePointer != null) return false;
+    _activePointer = pointer;
+    _current = [position];
+    notifyListeners();
+    return true;
+  }
+
+  void extendStroke(int pointer, Offset position) {
+    if (pointer != _activePointer || _current == null) return;
+    _current!.add(position);
+    notifyListeners();
+  }
+
+  void endStroke(int pointer) {
+    if (pointer != _activePointer) return;
+    final stroke = _current;
+    _activePointer = null;
+    _current = null;
+    if (stroke != null && stroke.isNotEmpty) _strokes.add(stroke);
+    notifyListeners();
+  }
+
+  void clear() {
+    _strokes.clear();
+    _current = null;
+    _activePointer = null;
+    notifyListeners();
+  }
+
+  Iterable<List<Offset>> get _allStrokes sync* {
+    yield* _strokes;
+    final current = _current;
+    if (current != null) yield current;
+  }
+
+  /// The canvas as a base64 PNG (empty string if it is not on screen).
+  Future<String> toBase64({double pixelRatio = 1.0}) async {
+    final boundary =
+        boundaryKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+    if (boundary == null) return '';
+    final image = await boundary.toImage(pixelRatio: pixelRatio);
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) return '';
+      return base64Encode(data.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  }
 }
 
-class DrawingCanvas extends StatefulWidget {
-  final Color strokeColor;
-  final double strokeWidth;
-  final GlobalKey canvasKey;
-  final VoidCallback? onDrawingStarted;
-
+/// A finger / mouse drawing surface.
+///
+/// It listens to raw pointer events, so a stroke starts exactly where the finger touched down
+/// (no "slop" distance is lost), and it ignores a second finger while one is already drawing.
+class DrawingCanvas extends StatelessWidget {
   const DrawingCanvas({
     super.key,
-    required this.canvasKey,
+    required this.controller,
+    this.enabled = true,
     this.strokeColor = Colors.white,
     this.strokeWidth = 4.0,
+    this.backgroundColor = const Color(0xFF1A1A2E),
     this.onDrawingStarted,
   });
 
-  @override
-  State<DrawingCanvas> createState() => DrawingCanvasState();
-}
+  final DrawingController controller;
 
-class DrawingCanvasState extends State<DrawingCanvas> {
-  final List<List<DrawingPoint>> _strokes = [];
-  List<DrawingPoint> _currentStroke = [];
-
-  void clear() => setState(() {
-        _strokes.clear();
-        _currentStroke = [];
-      });
-
-  Future<String> toBase64() async {
-    final boundary = widget.canvasKey.currentContext?.findRenderObject()
-        as RenderRepaintBoundary?;
-    if (boundary == null) return '';
-    final image = await boundary.toImage(pixelRatio: 1.0);
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    final bytes = byteData!.buffer.asUint8List();
-    return base64Encode(bytes);
-  }
-
-  Paint _makePaint() => Paint()
-    ..color = widget.strokeColor
-    ..strokeWidth = widget.strokeWidth
-    ..strokeCap = StrokeCap.round
-    ..strokeJoin = StrokeJoin.round
-    ..style = PaintingStyle.stroke;
+  /// When false (time is up, or the drawing was handed in) touches are ignored.
+  final bool enabled;
+  final Color strokeColor;
+  final double strokeWidth;
+  final Color backgroundColor;
+  final VoidCallback? onDrawingStarted;
 
   @override
   Widget build(BuildContext context) {
+    // The background lives INSIDE the boundary, so the exported PNG is an opaque picture.
     return RepaintBoundary(
-      key: widget.canvasKey,
-      child: Container(
-        color: const Color(0xFF1A1A2E),
-        child: GestureDetector(
-          onPanStart: (d) {
-            widget.onDrawingStarted?.call();
-            setState(() {
-              _currentStroke = [DrawingPoint(d.localPosition, _makePaint())];
-            });
-          },
-          onPanUpdate: (d) {
-            setState(() {
-              _currentStroke.add(DrawingPoint(d.localPosition, _makePaint()));
-            });
-          },
-          onPanEnd: (_) {
-            setState(() {
-              _strokes.add(List.from(_currentStroke));
-              _currentStroke = [];
-            });
-          },
-          child: CustomPaint(
-            painter: _CanvasPainter(_strokes, _currentStroke),
-            size: Size.infinite,
+      key: controller.boundaryKey,
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (event) {
+          if (!enabled) return;
+          if (controller.startStroke(event.pointer, event.localPosition)) {
+            onDrawingStarted?.call();
+          }
+        },
+        onPointerMove: (event) {
+          if (enabled) {
+            controller.extendStroke(event.pointer, event.localPosition);
+          }
+        },
+        onPointerUp: (event) => controller.endStroke(event.pointer),
+        onPointerCancel: (event) => controller.endStroke(event.pointer),
+        child: ClipRect(
+          child: ColoredBox(
+            color: backgroundColor,
+            child: CustomPaint(
+              painter: _CanvasPainter(
+                controller: controller,
+                color: strokeColor,
+                strokeWidth: strokeWidth,
+              ),
+              size: Size.infinite,
+            ),
           ),
         ),
       ),
@@ -88,20 +135,42 @@ class DrawingCanvasState extends State<DrawingCanvas> {
 }
 
 class _CanvasPainter extends CustomPainter {
-  final List<List<DrawingPoint>> strokes;
-  final List<DrawingPoint> currentStroke;
+  _CanvasPainter({
+    required this.controller,
+    required this.color,
+    required this.strokeWidth,
+  }) : super(repaint: controller);
 
-  _CanvasPainter(this.strokes, this.currentStroke);
+  final DrawingController controller;
+  final Color color;
+  final double strokeWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final stroke in [...strokes, currentStroke]) {
-      for (int i = 0; i < stroke.length - 1; i++) {
-        canvas.drawLine(stroke[i].offset, stroke[i + 1].offset, stroke[i].paint);
+    final line = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    final dot = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    for (final stroke in controller._allStrokes) {
+      if (stroke.length == 1) {
+        canvas.drawCircle(stroke.first, strokeWidth / 2, dot);
+        continue;
       }
+      final path = Path()..moveTo(stroke.first.dx, stroke.first.dy);
+      for (final point in stroke.skip(1)) {
+        path.lineTo(point.dx, point.dy);
+      }
+      canvas.drawPath(path, line);
     }
   }
 
   @override
-  bool shouldRepaint(_CanvasPainter old) => true;
+  bool shouldRepaint(_CanvasPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
 }

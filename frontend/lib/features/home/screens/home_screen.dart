@@ -1,16 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sketchduel_app/core/theme/app_theme.dart';
 import 'package:sketchduel_app/core/utils/supabase_client.dart';
+import 'package:sketchduel_app/data/models/user_model.dart';
+import 'package:sketchduel_app/data/repositories/game_repository.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _repo = GameRepository();
+  UserModel? _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final id = SupabaseClientHelper.userId;
+    if (id == null) return;
+    try {
+      final profile = await _repo.getProfile(id);
+      if (mounted) setState(() => _profile = profile);
+    } catch (_) {
+      // the e-mail name is shown instead
+    }
+  }
+
+  String get _displayName {
+    final username = _profile?.username;
+    if (username != null && username.isNotEmpty) return username;
+    return SupabaseClientHelper.currentUser?.email?.split('@').first ??
+        'Sketcher';
+  }
+
+  Future<void> _signOut() async {
+    await SupabaseClientHelper.signOut();
+    if (mounted) context.go('/login');
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final user = SupabaseClientHelper.currentUser;
+    final profile = _profile;
 
     return Scaffold(
       body: SafeArea(
@@ -22,28 +60,47 @@ class HomeScreen extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Welcome back,',
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Welcome back,',
                           style: TextStyle(
-                              color: AppTheme.textSecondary, fontSize: 14)),
-                      Text(
-                        user?.email?.split('@')[0] ?? 'Sketcher',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
+                            color: AppTheme.textSecondary,
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          _displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        if (profile != null && profile.totalGames > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              '${profile.totalWins} wins · ${profile.totalGames} games',
+                              style: const TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                   IconButton(
-                    onPressed: () async {
-                      await Supabase.instance.client.auth.signOut();
-                      if (context.mounted) context.go('/login');
-                    },
-                    icon: const Icon(Icons.logout, color: AppTheme.textSecondary),
+                    onPressed: _signOut,
+                    icon: const Icon(
+                      Icons.logout,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ).animate().fadeIn(),
@@ -58,7 +115,7 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 16),
               _BigButton(
                 label: 'Join Room',
-                subtitle: 'Enter a code to join a friend\'s game',
+                subtitle: "Enter a code to join a friend's game",
                 icon: Icons.login,
                 color: AppTheme.secondary,
                 onTap: () => context.go('/lobby?mode=join'),
@@ -104,14 +161,14 @@ class _BigButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.cardColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.3), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 28),
@@ -121,18 +178,22 @@ class _BigButton extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      )),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(subtitle,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      )),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
