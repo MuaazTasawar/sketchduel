@@ -67,7 +67,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: i < 3
-                          ? AppTheme.accent.withOpacity(0.3)
+                          ? AppTheme.accent.withValues(alpha: 0.3)
                           : Colors.transparent,
                     ),
                   ),
