@@ -67,6 +67,50 @@ class TestPreprocessing:
         with pytest.raises(ml.InvalidDrawingError):
             ml.preprocess_drawing(to_b64(Image.new("L", (2500, 2500), 0)))
 
+    @pytest.mark.parametrize(
+        ("wanted", "expected"),
+        [(0.2, 1), (1.0, 1), (4.8, 5), (9.6, 9), (10.4, 11), (13.0, 13)],
+    )
+    def test_dilation_kernel_is_the_nearest_odd_size(self, wanted, expected):
+        assert ml._nearest_odd(wanted) == expected
+
+    def test_the_same_drawing_gives_the_same_input_on_any_canvas_size(self):
+        # A drawing is judged by its shape, not by how big the player's window is.
+        from PIL import ImageDraw
+
+        def circle_on(size):
+            width, height = size
+            diameter = min(width, height) - 40
+            image = Image.new("RGB", size, (26, 26, 46))
+            ImageDraw.Draw(image).ellipse(
+                (
+                    (width - diameter) // 2,
+                    (height - diameter) // 2,
+                    (width + diameter) // 2,
+                    (height + diameter) // 2,
+                ),
+                outline=(255, 255, 255),
+                width=4,
+            )
+            return ml.drawing_to_array(image)
+
+        phone = circle_on((360, 420))
+        for size in [(600, 420), (700, 500), (300, 300)]:
+            assert np.abs(phone - circle_on(size)).mean() < 0.03
+
+    def test_a_canvas_filling_drawing_is_processed_quickly(self):
+        import time
+
+        from PIL import ImageDraw
+
+        image = Image.new("RGB", (700, 500), (26, 26, 46))
+        ImageDraw.Draw(image).ellipse((15, 15, 685, 485), outline=(255, 255, 255), width=4)
+        started = time.perf_counter()
+        for _ in range(5):
+            assert ml.drawing_to_array(image) is not None
+        # about 15 ms each on a laptop; the old full-size dilation took ~265 ms. Very generous bound:
+        assert (time.perf_counter() - started) / 5 < 0.15
+
 
 # ---------------------------------------------------------------------------------------------
 # Real ONNX models (a tiny synthetic one is built on the fly; skipped if `onnx` is not installed)

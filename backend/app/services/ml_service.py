@@ -44,6 +44,7 @@ INK_THRESHOLD = 0.15           # fraction of peak contrast that counts as "strok
 MIN_INK_PIXELS = 8
 TARGET_SPAN = 26               # the drawing should span ~26 of the 28 pixels (QuickDraw style)
 STROKE_SCALE = 1.2             # thickens strokes so they survive the downscale (~1.5px at 28x28)
+WORK_SIZE = IMG_SIZE * 8       # strokes are thickened at 224 px, not at full canvas size (fast)
 
 
 class InvalidDrawingError(ValueError):
@@ -96,9 +97,9 @@ def _ink_map(image: Image.Image) -> np.ndarray:
     return np.abs(gray - background)
 
 
-def _odd(value: int) -> int:
-    value = max(int(value), 1)
-    return value if value % 2 == 1 else value + 1
+def _nearest_odd(value: float) -> int:
+    """The odd integer closest to `value` (dilation kernels must have an odd size)."""
+    return max(1, 2 * round((value - 1) / 2) + 1)
 
 
 def drawing_to_array(image: Image.Image) -> Optional[np.ndarray]:
@@ -129,7 +130,12 @@ def drawing_to_array(image: Image.Image) -> Optional[np.ndarray]:
     crop_img = Image.fromarray((np.clip(crop, 0.0, 1.0) * 255).astype(np.uint8), mode="L")
     square.paste(crop_img, ((padded_side - width) // 2, (padded_side - height) // 2))
 
-    kernel = _odd(round(padded_side / IMG_SIZE * STROKE_SCALE))
+    # Shrink to a small working size BEFORE thickening: the dilation filter costs time
+    # proportional to (image area x kernel area), which is slow on a full-size canvas.
+    resample = Image.Resampling.BOX if padded_side >= WORK_SIZE else Image.Resampling.BILINEAR
+    square = square.resize((WORK_SIZE, WORK_SIZE), resample)
+
+    kernel = _nearest_odd(WORK_SIZE / IMG_SIZE * STROKE_SCALE)
     if kernel > 1:
         square = square.filter(ImageFilter.MaxFilter(kernel))
 
