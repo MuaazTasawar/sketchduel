@@ -161,7 +161,8 @@ class TestOnnxModel:
         load(tmp_path / "m.onnx")
         result = ml.score_drawing_sync(png(), "cat", 10)
         assert result["model"] == "onnx"
-        assert result["recognized_as"] == "dog" and result["bluff_bonus"] == 15.0
+        assert result["recognized_as"] == "dog" and result["matched"] is False
+        assert result["score"] < 1.0  # the model is sure of "dog", so the prompt "cat" earns ~nothing
         assert result["prompt_confidence"] < 0.1
 
     def test_prompt_confidence_for_matching_prompt(self, tmp_path, png):
@@ -169,7 +170,7 @@ class TestOnnxModel:
         build_model(tmp_path / "m.onnx", labels, labels.index("dog"))
         load(tmp_path / "m.onnx")
         result = ml.score_drawing_sync(png(), "dog", 10)
-        assert result["bluff_detected"] is False
+        assert result["matched"] is True
         assert abs(result["prompt_confidence"] - result["confidence"]) < 1e-3
 
     def test_labels_embedded_in_the_model_win(self, tmp_path, png):

@@ -99,16 +99,22 @@ class GameRoom {
 }
 
 /// Answer to "submit my drawing".
+///
+/// score = accuracyScore + speedBonus, and both depend on how sure the AI is that the drawing
+/// is the PROMPT (promptConfidence). Drawing something else, however recognisable, earns ~0.
 class ScoreResult {
   /// False when this player had already handed in a drawing (nothing was re-scored).
   final bool submitted;
   final double? score;
-  final double baseScore;
+  final double accuracyScore;
   final double speedBonus;
-  final double bluffBonus;
-  final bool bluffDetected;
+
+  /// True when the AI's best guess was the prompt itself.
+  final bool matched;
   final String recognizedAs;
   final double confidence;
+
+  /// How sure the AI is that the drawing is the prompt (0..1): the number that drives the score.
   final double promptConfidence;
   final bool blank;
   final bool late;
@@ -122,10 +128,9 @@ class ScoreResult {
   const ScoreResult({
     this.submitted = true,
     this.score,
-    this.baseScore = 0.0,
+    this.accuracyScore = 0.0,
     this.speedBonus = 0.0,
-    this.bluffBonus = 0.0,
-    this.bluffDetected = false,
+    this.matched = false,
     this.recognizedAs = '',
     this.confidence = 0.0,
     this.promptConfidence = 0.0,
@@ -146,35 +151,36 @@ class ScoreResult {
   String get gameStatus => status;
 
   factory ScoreResult.fromJson(Map<String, dynamic> json) => ScoreResult(
-        submitted: json['submitted'] != false,
-        score: _asDouble(json['score']),
-        baseScore: _asDouble(json['base_score']) ?? 0.0,
-        speedBonus: _asDouble(json['speed_bonus']) ?? 0.0,
-        bluffBonus: _asDouble(json['bluff_bonus']) ?? 0.0,
-        bluffDetected: json['bluff_detected'] == true,
-        recognizedAs: (json['recognized_as'] as String?) ?? '',
-        confidence: _asDouble(json['confidence']) ?? 0.0,
-        promptConfidence: _asDouble(json['prompt_confidence']) ?? 0.0,
-        blank: json['blank'] == true,
-        late: json['late'] == true,
-        timeTaken: _asDouble(json['time_taken']),
-        model: json['model'] as String?,
-        status: json['status'] as String,
-        winnerId: json['winner_id'] as String?,
-        isDraw: json['is_draw'] == true,
-        room: GameRoom.fromJson(Map<String, dynamic>.from(json['room'] as Map)),
-      );
+    submitted: json['submitted'] != false,
+    score: _asDouble(json['score']),
+    accuracyScore: _asDouble(json['accuracy_score']) ?? 0.0,
+    speedBonus: _asDouble(json['speed_bonus']) ?? 0.0,
+    matched: json['matched'] == true,
+    recognizedAs: (json['recognized_as'] as String?) ?? '',
+    confidence: _asDouble(json['confidence']) ?? 0.0,
+    promptConfidence: _asDouble(json['prompt_confidence']) ?? 0.0,
+    blank: json['blank'] == true,
+    late: json['late'] == true,
+    timeTaken: _asDouble(json['time_taken']),
+    model: json['model'] as String?,
+    status: json['status'] as String,
+    winnerId: json['winner_id'] as String?,
+    isDraw: json['is_draw'] == true,
+    room: GameRoom.fromJson(Map<String, dynamic>.from(json['room'] as Map)),
+  );
 }
 
 /// What the AI sees in the drawing right now (the live bar). Nothing is scored or stored.
 class LivePrediction {
+  /// The AI's best guess, whatever it is.
   final String recognizedAs;
   final double confidence;
-  final double promptConfidence;
-  final bool bluffDetected;
 
-  /// True when the AI is confidently sure it is NOT the prompt (this is what earns the bluff bonus).
-  final bool bluffEligible;
+  /// How sure the AI is that the drawing is the PROMPT: what you would score if you handed in now.
+  final double promptConfidence;
+
+  /// True when the AI's best guess is the prompt.
+  final bool matchesPrompt;
   final bool blank;
   final String model;
   final double? secondsRemaining;
@@ -183,23 +189,21 @@ class LivePrediction {
     required this.recognizedAs,
     required this.confidence,
     required this.promptConfidence,
-    required this.bluffDetected,
-    required this.bluffEligible,
+    required this.matchesPrompt,
     required this.blank,
     required this.model,
     this.secondsRemaining,
   });
 
   factory LivePrediction.fromJson(Map<String, dynamic> json) => LivePrediction(
-        recognizedAs: (json['recognized_as'] as String?) ?? '',
-        confidence: _asDouble(json['confidence']) ?? 0.0,
-        promptConfidence: _asDouble(json['prompt_confidence']) ?? 0.0,
-        bluffDetected: json['bluff_detected'] == true,
-        bluffEligible: json['bluff_eligible'] == true,
-        blank: json['blank'] == true,
-        model: (json['model'] as String?) ?? 'mock',
-        secondsRemaining: _asDouble(json['seconds_remaining']),
-      );
+    recognizedAs: (json['recognized_as'] as String?) ?? '',
+    confidence: _asDouble(json['confidence']) ?? 0.0,
+    promptConfidence: _asDouble(json['prompt_confidence']) ?? 0.0,
+    matchesPrompt: json['matches_prompt'] == true,
+    blank: json['blank'] == true,
+    model: (json['model'] as String?) ?? 'mock',
+    secondsRemaining: _asDouble(json['seconds_remaining']),
+  );
 }
 
 /// One finished game in a player's history.

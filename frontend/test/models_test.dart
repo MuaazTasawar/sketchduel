@@ -99,19 +99,29 @@ void main() {
   });
 
   group('ScoreResult', () {
-    test('the first submission keeps the match open', () {
+    test('a drawing the AI reads as something else scores low and keeps the '
+        'match open', () {
       final result = ScoreResult.fromJson(asMap(scoreFirstJson));
       expect(result.submitted, isTrue);
-      expect(result.score, 79.29);
-      expect(result.baseScore, 54.35);
-      expect(result.speedBonus, 24.94);
-      expect(result.bluffBonus, 0.0);
-      expect(result.recognizedAs, 'cloud');
-      expect(result.confidence, closeTo(0.9058, 0.0001));
+      expect(result.score, 15.22);
+      expect(result.accuracyScore, 10.66);
+      expect(result.speedBonus, 4.56);
+      expect(result.matched, isFalse);
+      expect(result.recognizedAs, 'dog');
+      expect(result.confidence, 0.74);
+      expect(result.promptConfidence, closeTo(0.1523, 0.0001));
       expect(result.isFinished, isFalse);
       expect(result.gameStatus, 'active');
-      expect(result.room.myScore, 79.29);
+      expect(result.room.myScore, 15.22);
       expect(result.room.opponentScore, isNull);
+    });
+
+    test('the score is its accuracy part plus its speed part', () {
+      final result = ScoreResult.fromJson(asMap(scoreFirstJson));
+      expect(
+        result.accuracyScore + result.speedBonus,
+        closeTo(result.scoreValue, 0.011),
+      );
     });
 
     test('handing in again is reported as not submitted', () {
@@ -120,20 +130,24 @@ void main() {
       expect(result.score, isNull);
       expect(result.scoreValue, 0.0);
       expect(result.recognizedAs, '');
+      expect(result.matched, isFalse);
       expect(result.blank, isFalse);
     });
 
-    test('the second submission finishes the match', () {
+    test('the second submission finishes the match and the better match '
+        'wins', () {
       final result = ScoreResult.fromJson(asMap(scoreFinishedJson));
       expect(result.isFinished, isTrue);
-      expect(result.winnerId, aliceId);
+      expect(result.matched, isTrue);
+      expect(result.winnerId, bobId);
       expect(result.isDraw, isFalse);
-      expect(result.room.player1Score, 79.29);
-      expect(result.room.player2Score, 61.92);
-      expect(result.room.outcomeFor(bobId), GameOutcome.loss);
+      expect(result.room.player1Score, 15.22);
+      expect(result.room.player2Score, 61.65);
+      expect(result.room.outcomeFor(bobId), GameOutcome.win);
+      expect(result.room.outcomeFor(aliceId), GameOutcome.loss);
     });
 
-    test('a blank, late or bluffing answer carries its flags', () {
+    test('a blank or late answer carries its flags', () {
       final base = asMap(scoreFirstJson);
       final blank = ScoreResult.fromJson({
         ...base,
@@ -143,13 +157,11 @@ void main() {
       expect(blank.blank, isTrue);
       final late = ScoreResult.fromJson({...base, 'late': true});
       expect(late.late, isTrue);
-      final bluff = ScoreResult.fromJson({
-        ...base,
-        'bluff_detected': true,
-        'bluff_bonus': 15.0,
-      });
-      expect(bluff.bluffDetected, isTrue);
-      expect(bluff.bluffBonus, 15.0);
+    });
+
+    test('there is no bluff bonus any more', () {
+      expect(asMap(scoreFirstJson).containsKey('bluff_bonus'), isFalse);
+      expect(asMap(scoreFirstJson).containsKey('bluff_detected'), isFalse);
     });
   });
 
@@ -157,11 +169,25 @@ void main() {
     test('parses what the AI sees', () {
       final prediction = LivePrediction.fromJson(asMap(predictJson));
       expect(prediction.recognizedAs, 'cloud');
-      expect(prediction.confidence, closeTo(0.8906, 0.0001));
+      expect(prediction.confidence, closeTo(0.9058, 0.0001));
+      expect(prediction.promptConfidence, closeTo(0.9058, 0.0001));
+      expect(prediction.matchesPrompt, isTrue);
       expect(prediction.blank, isFalse);
-      expect(prediction.bluffEligible, isFalse);
       expect(prediction.model, 'mock');
       expect(prediction.secondsRemaining, 60.0);
+    });
+
+    test('an AI that reads the drawing as something else', () {
+      final prediction = LivePrediction.fromJson({
+        ...asMap(predictJson),
+        'recognized_as': 'dog',
+        'confidence': 0.74,
+        'prompt_confidence': 0.1523,
+        'matches_prompt': false,
+      });
+      expect(prediction.matchesPrompt, isFalse);
+      expect(prediction.recognizedAs, 'dog');
+      expect(prediction.promptConfidence, closeTo(0.1523, 0.0001));
     });
 
     test('an empty canvas is reported as blank', () {
@@ -169,6 +195,7 @@ void main() {
       expect(prediction.blank, isTrue);
       expect(prediction.recognizedAs, '');
       expect(prediction.confidence, 0.0);
+      expect(prediction.matchesPrompt, isFalse);
     });
   });
 

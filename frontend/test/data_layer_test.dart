@@ -343,7 +343,7 @@ void main() {
         'POST /api/v1/game/score {"game_id":"g1","drawing_data":"AAAA"}',
       );
       expect(result.submitted, isTrue);
-      expect(result.score, 79.29);
+      expect(result.score, 15.22);
     });
 
     test('predict posts the drawing for the live bar', () async {

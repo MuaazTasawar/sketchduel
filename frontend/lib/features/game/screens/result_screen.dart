@@ -191,7 +191,10 @@ class _ResultScreenState extends State<ResultScreen> {
             ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.3),
             if (mine != null && mine.submitted) ...[
               const SizedBox(height: 24),
-              _Breakdown(result: mine).animate().fadeIn(delay: 500.ms),
+              _Breakdown(
+                result: mine,
+                prompt: room.prompt,
+              ).animate().fadeIn(delay: 500.ms),
             ],
             const SizedBox(height: 40),
             SizedBox(
@@ -268,20 +271,24 @@ class _ScoreCard extends StatelessWidget {
 /// What the AI saw in your drawing and where your points came from.
 class _Breakdown extends StatelessWidget {
   final ScoreResult result;
+  final String prompt;
 
-  const _Breakdown({required this.result});
+  const _Breakdown({required this.result, required this.prompt});
 
   @override
   Widget build(BuildContext context) {
+    final match = (result.promptConfidence * 100).round();
     final String headline;
     if (result.blank) {
       headline = 'Your canvas was empty.';
     } else if (result.late) {
       headline = 'You handed in too late.';
+    } else if (result.matched) {
+      headline = 'The AI saw "$prompt" ($match% sure). Nice drawing!';
     } else {
       headline =
-          'The AI saw "${result.recognizedAs}" '
-          '(${(result.confidence * 100).round()}% sure)';
+          'The AI saw "${result.recognizedAs}" instead of "$prompt" '
+          '($match% match).';
     }
 
     return Container(
@@ -302,16 +309,6 @@ class _Breakdown extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (result.bluffBonus > 0) ...[
-            const SizedBox(height: 6),
-            const Text(
-              '🎭 You fooled the AI!',
-              style: TextStyle(
-                color: AppTheme.secondary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
           const SizedBox(height: 12),
           Wrap(
             alignment: WrapAlignment.center,
@@ -319,8 +316,8 @@ class _Breakdown extends StatelessWidget {
             runSpacing: 8,
             children: [
               _Pill(
-                label: 'AI confidence',
-                value: '+${result.baseScore.toStringAsFixed(1)}',
+                label: 'Accuracy',
+                value: '+${result.accuracyScore.toStringAsFixed(1)}',
                 color: AppTheme.primary,
               ),
               _Pill(
@@ -328,12 +325,6 @@ class _Breakdown extends StatelessWidget {
                 value: '+${result.speedBonus.toStringAsFixed(1)}',
                 color: AppTheme.accent,
               ),
-              if (result.bluffBonus > 0)
-                _Pill(
-                  label: 'Bluff',
-                  value: '+${result.bluffBonus.toStringAsFixed(1)}',
-                  color: AppTheme.secondary,
-                ),
             ],
           ),
         ],

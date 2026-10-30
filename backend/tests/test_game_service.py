@@ -248,7 +248,7 @@ class TestSubmitDrawing:
         db.set_started(game_id, seconds_ago=30)
         result = gs.submit_drawing(players["alice"], game_id, png())
         assert 29 <= result["time_taken"] <= 31
-        assert 11.5 <= result["speed_bonus"] <= 13.5  # about half the time left -> about 12.5
+        assert 6.5 <= result["speed_bonus"] <= 8.5  # half the time left x 30 x 50 % sure -> about 7.5
 
     def test_submission_after_the_deadline_is_a_forfeit(self, db, players, png):
         game_id = start_game(players)

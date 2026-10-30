@@ -30,10 +30,8 @@ QUICKDRAW_CLASSES: List[str] = [
 ]
 
 # --- Scoring rules --------------------------------------------------------------------------
-BASE_MAX_POINTS = 60.0
-SPEED_MAX_POINTS = 25.0
-BLUFF_POINTS = 15.0
-BLUFF_CONFIDENCE = 0.6
+ACCURACY_MAX_POINTS = 70.0
+SPEED_MAX_POINTS = 30.0
 MAX_SCORE = 100.0
 
 # --- Preprocessing constants ------------------------------------------------------------------
@@ -281,46 +279,53 @@ def calculate_score(
     time_taken: float,
     max_time: float = 60.0,
     blank: bool = False,
+    prompt_confidence: Optional[float] = None,
 ) -> dict:
     """
-    Scoring formula (max 100):
-      base  = confidence * 60                    (how sure the AI is, about whatever it sees)
-      speed = unused_time / max_time * 25
-      bluff = +15 when the AI is >60% sure it is something OTHER than the prompt
+    Accuracy-first scoring (max 100):
+
+        score = prompt_confidence x (70 + 30 x time_left / max_time)
+
+    * prompt_confidence is how sure the AI is that the drawing is the PROMPT (not just the label
+      it likes best), so a confident wrong guess scores about 0 and nothing can be gamed by
+      drawing something easy to recognise.
+    * Speed only counts in proportion to accuracy: a fast scribble earns almost nothing.
+    * If prompt_confidence is not given, it is the AI's confidence when its best guess is the
+      prompt and 0 otherwise.
     An empty canvas scores 0.
     """
     if blank:
         return {
             "score": 0.0,
-            "base_score": 0.0,
+            "accuracy_score": 0.0,
             "speed_bonus": 0.0,
-            "bluff_bonus": 0.0,
-            "bluff_detected": False,
+            "matched": False,
             "recognized_as": "",
             "confidence": 0.0,
+            "prompt_confidence": 0.0,
         }
 
-    prompt_lower = prompt.lower().strip()
-    recognized_lower = recognized_as.lower().strip()
-    bluff_detected = recognized_lower != prompt_lower
-
+    matched = recognized_as.lower().strip() == prompt.lower().strip()
     confidence = min(max(float(confidence), 0.0), 1.0)
+    if prompt_confidence is None:
+        prompt_confidence = confidence if matched else 0.0
+    prompt_confidence = min(max(float(prompt_confidence), 0.0), 1.0)
     time_taken = min(max(float(time_taken), 0.0), max_time)
 
-    base_score = confidence * BASE_MAX_POINTS
-    speed_bonus = ((max_time - time_taken) / max_time) * SPEED_MAX_POINTS
-    bluff_bonus = BLUFF_POINTS if (bluff_detected and confidence > BLUFF_CONFIDENCE) else 0.0
+    accuracy_score = prompt_confidence * ACCURACY_MAX_POINTS
+    time_left = (max_time - time_taken) / max_time
+    speed_bonus = time_left * SPEED_MAX_POINTS * prompt_confidence
 
-    total = min(MAX_SCORE, base_score + speed_bonus + bluff_bonus)
+    total = min(MAX_SCORE, accuracy_score + speed_bonus)
 
     return {
         "score": round(total, 2),
-        "base_score": round(base_score, 2),
+        "accuracy_score": round(accuracy_score, 2),
         "speed_bonus": round(speed_bonus, 2),
-        "bluff_bonus": round(bluff_bonus, 2),
-        "bluff_detected": bluff_detected,
+        "matched": matched,
         "recognized_as": recognized_as,
         "confidence": round(confidence, 4),
+        "prompt_confidence": round(prompt_confidence, 4),
     }
 
 
@@ -335,12 +340,17 @@ def score_drawing_sync(
 
     if processed is None:
         result = calculate_score("", 0.0, prompt, time_taken, max_time, blank=True)
-        result["prompt_confidence"] = 0.0
         result["blank"] = True
     else:
         label, confidence, prompt_confidence = classify(processed, prompt)
-        result = calculate_score(label, confidence, prompt, time_taken, max_time)
-        result["prompt_confidence"] = round(prompt_confidence, 4)
+        result = calculate_score(
+            label,
+            confidence,
+            prompt,
+            time_taken,
+            max_time,
+            prompt_confidence=prompt_confidence,
+        )
         result["blank"] = False
 
     result["model"] = model_info()["backend"]
@@ -353,7 +363,10 @@ async def score_drawing(drawing_data: str, prompt: str, time_taken: float) -> di
 
 
 def predict_drawing(drawing_data: str, prompt: str) -> dict:
-    """Live preview: what does the AI see right now? Nothing is scored or stored."""
+    """Live preview: what does the AI see right now? Nothing is scored or stored.
+
+    `prompt_confidence` is the number that would drive the score if the player handed in now.
+    """
     processed = preprocess_drawing(drawing_data)
     info = model_info()
 
@@ -362,20 +375,17 @@ def predict_drawing(drawing_data: str, prompt: str) -> dict:
             "recognized_as": "",
             "confidence": 0.0,
             "prompt_confidence": 0.0,
-            "bluff_detected": False,
-            "bluff_eligible": False,
+            "matches_prompt": False,
             "blank": True,
             "model": info["backend"],
         }
 
     label, confidence, prompt_confidence = classify(processed, prompt)
-    mismatch = label.lower().strip() != prompt.lower().strip()
     return {
         "recognized_as": label,
         "confidence": round(confidence, 4),
         "prompt_confidence": round(prompt_confidence, 4),
-        "bluff_detected": mismatch,
-        "bluff_eligible": mismatch and confidence > BLUFF_CONFIDENCE,
+        "matches_prompt": label.lower().strip() == prompt.lower().strip(),
         "blank": False,
         "model": info["backend"],
     }

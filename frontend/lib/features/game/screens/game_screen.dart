@@ -375,9 +375,9 @@ class _GameScreenState extends State<GameScreen> {
           child: Column(
             children: [
               AiScoreBar(
-                confidence: prediction?.confidence ?? 0.0,
+                promptConfidence: prediction?.promptConfidence ?? 0.0,
                 recognizedAs: prediction?.recognizedAs ?? '',
-                bluffDetected: prediction?.bluffEligible ?? false,
+                matchesPrompt: prediction?.matchesPrompt ?? false,
                 isVisible: showBar,
               ),
               if (prediction != null && showBar && prediction.model == 'mock')

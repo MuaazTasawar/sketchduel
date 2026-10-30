@@ -75,10 +75,11 @@ class ScoreResponse(BaseModel):
     # False when this player had already submitted earlier (nothing was re-scored).
     submitted: bool = True
     score: Optional[float] = None
-    base_score: Optional[float] = None
+    # score = accuracy_score + speed_bonus; both depend on how sure the AI is it is the PROMPT
+    accuracy_score: Optional[float] = None
     speed_bonus: Optional[float] = None
-    bluff_bonus: Optional[float] = None
-    bluff_detected: Optional[bool] = None
+    # True when the AI's best guess was the prompt itself
+    matched: Optional[bool] = None
     recognized_as: Optional[str] = None
     confidence: Optional[float] = None
     prompt_confidence: Optional[float] = None
@@ -96,8 +97,7 @@ class PredictResponse(BaseModel):
     recognized_as: str
     confidence: float
     prompt_confidence: float
-    bluff_detected: bool
-    bluff_eligible: bool
+    matches_prompt: bool
     blank: bool
     model: str
     seconds_remaining: Optional[float] = None

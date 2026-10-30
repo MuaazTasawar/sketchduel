@@ -1,4 +1,5 @@
-// Real responses captured from the SketchDuel backend (the demo AI was in "mock" mode).
+// Real responses captured from the SketchDuel backend (the demo AI was in "mock" mode, with its
+// guesses fixed so the story below is repeatable).
 // Shared by the model and API tests so both are checked against what the server really sends.
 import 'dart:convert';
 
@@ -55,57 +56,34 @@ const roomFinishedJson =
  "finished_at": "2026-10-24T07:18:56.367546+00:00", "created_at": "2026-10-24T07:18:56.071278+00:00"}
 ''';
 
+// What the AI sees while Alice draws: it reads her drawing as the prompt (a cloud).
 const predictJson = '''
-{"recognized_as": "cloud", "confidence": 0.8906, "prompt_confidence": 0.8906,
- "bluff_detected": false, "bluff_eligible": false, "blank": false, "model": "mock",
- "seconds_remaining": 60.0}
+{"recognized_as": "cloud", "confidence": 0.9058, "prompt_confidence": 0.9058, "matches_prompt": true, "blank": false, "model": "mock", "seconds_remaining": 60.0}
 ''';
 
+// Nothing drawn yet.
 const predictBlankJson = '''
-{"recognized_as": "", "confidence": 0.0, "prompt_confidence": 0.0, "bluff_detected": false,
- "bluff_eligible": false, "blank": true, "model": "mock", "seconds_remaining": 59.9}
+{"recognized_as": "", "confidence": 0.0, "prompt_confidence": 0.0, "matches_prompt": false, "blank": true, "model": "mock", "seconds_remaining": 59.9}
 ''';
 
-// Alice hands in first: the match is still active, Bob's score is hidden.
+// Alice hands in first. The AI reads her drawing as a dog (74% sure) but only 15% sure it is the
+// prompt (a cloud), so she scores little. The match is still active and Bob's score is hidden.
 const scoreFirstJson =
     '''
-{"submitted": true, "score": 79.29, "base_score": 54.35, "speed_bonus": 24.94, "bluff_bonus": 0.0,
- "bluff_detected": false, "recognized_as": "cloud", "confidence": 0.9058, "prompt_confidence": 0.9058,
- "blank": false, "late": false, "time_taken": 0.15, "model": "mock", "status": "active",
- "winner_id": null, "is_draw": false,
- "room": {"id": "$gameId", "room_code": "TQXRMV", "prompt": "cloud", "status": "active",
-  "player1_id": "$aliceId", "player2_id": "$bobId", "player1_score": 79.29, "player2_score": null,
-  "winner_id": null, "is_draw": false, "is_player1": true, "seconds_remaining": 59.9,
-  "time_limit_seconds": 60, "started_at": "2026-10-24T07:18:56.077368+00:00", "finished_at": null,
-  "created_at": "2026-10-24T07:18:56.071278+00:00"}}
+{"submitted": true, "score": 15.22, "accuracy_score": 10.66, "speed_bonus": 4.56, "matched": false, "recognized_as": "dog", "confidence": 0.74, "prompt_confidence": 0.1523, "blank": false, "late": false, "time_taken": 0.1, "model": "mock", "status": "active", "winner_id": null, "is_draw": false, "room": {"id": "$gameId", "room_code": "TQXRMV", "prompt": "cloud", "status": "active", "player1_id": "$aliceId", "player2_id": "$bobId", "player1_score": 15.22, "player2_score": null, "winner_id": null, "is_draw": false, "is_player1": true, "seconds_remaining": 59.9, "time_limit_seconds": 60, "started_at": "2026-10-26T22:32:45.040072+00:00", "finished_at": null, "created_at": "2026-10-26T22:32:45.036338+00:00"}}
 ''';
 
 // Alice tries to hand in a second time: nothing is re-scored.
 const scoreResubmitJson =
     '''
-{"submitted": false, "score": null, "base_score": null, "speed_bonus": null, "bluff_bonus": null,
- "bluff_detected": null, "recognized_as": null, "confidence": null, "prompt_confidence": null,
- "blank": null, "late": false, "time_taken": null, "model": null, "status": "active",
- "winner_id": null, "is_draw": false,
- "room": {"id": "$gameId", "room_code": "TQXRMV", "prompt": "cloud", "status": "active",
-  "player1_id": "$aliceId", "player2_id": "$bobId", "player1_score": 79.29, "player2_score": null,
-  "winner_id": null, "is_draw": false, "is_player1": true, "seconds_remaining": 59.8,
-  "time_limit_seconds": 60, "started_at": "2026-10-24T07:18:56.077368+00:00", "finished_at": null,
-  "created_at": "2026-10-24T07:18:56.071278+00:00"}}
+{"submitted": false, "score": null, "accuracy_score": null, "speed_bonus": null, "matched": null, "recognized_as": null, "confidence": null, "prompt_confidence": null, "blank": null, "late": false, "time_taken": null, "model": null, "status": "active", "winner_id": null, "is_draw": false, "room": {"id": "$gameId", "room_code": "TQXRMV", "prompt": "cloud", "status": "active", "player1_id": "$aliceId", "player2_id": "$bobId", "player1_score": 15.22, "player2_score": null, "winner_id": null, "is_draw": false, "is_player1": true, "seconds_remaining": 59.9, "time_limit_seconds": 60, "started_at": "2026-10-26T22:32:45.040072+00:00", "finished_at": null, "created_at": "2026-10-26T22:32:45.036338+00:00"}}
 ''';
 
-// Bob hands in second: this finishes the match (Bob's view).
+// Bob hands in second and finishes the match (Bob's view). The AI is 62% sure his drawing is a
+// cloud, so he wins 61.65 to 15.22.
 const scoreFinishedJson =
     '''
-{"submitted": true, "score": 61.92, "base_score": 37.01, "speed_bonus": 24.91, "bluff_bonus": 0.0,
- "bluff_detected": false, "recognized_as": "cloud", "confidence": 0.6169, "prompt_confidence": 0.6169,
- "blank": false, "late": false, "time_taken": 0.21, "model": "mock", "status": "finished",
- "winner_id": "$aliceId", "is_draw": false,
- "room": {"id": "$gameId", "room_code": "TQXRMV", "prompt": "cloud", "status": "finished",
-  "player1_id": "$aliceId", "player2_id": "$bobId", "player1_score": 79.29, "player2_score": 61.92,
-  "winner_id": "$aliceId", "is_draw": false, "is_player1": false, "seconds_remaining": null,
-  "time_limit_seconds": 60, "started_at": "2026-10-24T07:18:56.077368+00:00",
-  "finished_at": "2026-10-24T07:18:56.367546+00:00", "created_at": "2026-10-24T07:18:56.071278+00:00"}}
+{"submitted": true, "score": 61.65, "accuracy_score": 43.18, "speed_bonus": 18.47, "matched": true, "recognized_as": "cloud", "confidence": 0.6169, "prompt_confidence": 0.6169, "blank": false, "late": false, "time_taken": 0.12, "model": "mock", "status": "finished", "winner_id": "$bobId", "is_draw": false, "room": {"id": "$gameId", "room_code": "TQXRMV", "prompt": "cloud", "status": "finished", "player1_id": "$aliceId", "player2_id": "$bobId", "player1_score": 15.22, "player2_score": 61.65, "winner_id": "$bobId", "is_draw": false, "is_player1": false, "seconds_remaining": null, "time_limit_seconds": 60, "started_at": "2026-10-26T22:32:45.040072+00:00", "finished_at": "2026-10-26T22:32:45.174150+00:00", "created_at": "2026-10-26T22:32:45.036338+00:00"}}
 ''';
 
 const historyJson =

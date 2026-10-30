@@ -263,9 +263,9 @@ void main() {
       await tester.pumpWidget(
         host(
           const AiScoreBar(
-            confidence: 0.8,
+            promptConfidence: 0.8,
             recognizedAs: 'cat',
-            bluffDetected: false,
+            matchesPrompt: true,
           ),
         ),
       );
@@ -275,42 +275,94 @@ void main() {
       expect(find.textContaining('AI sees'), findsNothing);
     });
 
-    testWidgets('shows what the AI sees and how sure it is', (tester) async {
+    testWidgets('a match: shows what the AI sees and how well it fits', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         host(
           const AiScoreBar(
-            confidence: 0.85,
+            promptConfidence: 0.85,
             recognizedAs: 'cat',
-            bluffDetected: false,
+            matchesPrompt: true,
             isVisible: true,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('🤖 AI sees: cat'), findsOneWidget);
-      expect(find.text('Confidence: 85.0%'), findsOneWidget);
+      expect(find.text('✅ AI sees: cat'), findsOneWidget);
+      expect(find.text('85%'), findsOneWidget);
+      expect(find.text('Match with the prompt'), findsOneWidget);
       final bar = tester.widget<LinearPercentIndicator>(
         find.byType(LinearPercentIndicator),
       );
       expect(bar.percent, closeTo(0.85, 0.0001));
     });
 
-    testWidgets('announces a bluff instead of the label', (tester) async {
+    testWidgets('a mismatch: the AI sees something else', (tester) async {
       await tester.pumpWidget(
         host(
           const AiScoreBar(
-            confidence: 0.9,
+            promptConfidence: 0.12,
             recognizedAs: 'dog',
-            bluffDetected: true,
+            matchesPrompt: false,
             isVisible: true,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('🎭 Bluff detected!'), findsOneWidget);
-      expect(find.textContaining('AI sees'), findsNothing);
+      expect(find.text('🤔 AI sees: dog'), findsOneWidget);
+      expect(find.text('12%'), findsOneWidget);
+      final bar = tester.widget<LinearPercentIndicator>(
+        find.byType(LinearPercentIndicator),
+      );
+      expect(bar.percent, closeTo(0.12, 0.0001));
+    });
+
+    testWidgets('the bar never leaves its range', (tester) async {
+      await tester.pumpWidget(
+        host(
+          const AiScoreBar(
+            promptConfidence: 1.7,
+            recognizedAs: 'cat',
+            matchesPrompt: true,
+            isVisible: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final bar = tester.widget<LinearPercentIndicator>(
+        find.byType(LinearPercentIndicator),
+      );
+      expect(bar.percent, 1.0);
+      expect(find.text('100%'), findsOneWidget);
+    });
+
+    testWidgets('a long label on a narrow screen does not overflow', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(
+          const Align(
+            child: SizedBox(
+              width: 200,
+              child: AiScoreBar(
+                promptConfidence: 0.5,
+                recognizedAs: 'helicopter, or something even longer',
+                matchesPrompt: false,
+                isVisible: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // A RenderFlex overflow would be reported as an exception and fail the test.
+      expect(tester.takeException(), isNull);
+      expect(find.byType(LinearPercentIndicator), findsOneWidget);
     });
   });
 }
